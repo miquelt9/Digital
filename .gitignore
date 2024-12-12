@@ -83,3 +83,5 @@ nbactions.xml
 .project
 .settings
 .vscode
+credentials.properties
+credentials.properties

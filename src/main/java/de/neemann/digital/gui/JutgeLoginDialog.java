@@ -8,11 +8,15 @@ package de.neemann.digital.gui;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
+import javax.swing.JEditorPane;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
+import javax.swing.UIManager;
+import javax.swing.border.Border;
+
 import java.awt.GridBagLayout;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
@@ -31,6 +35,8 @@ public class JutgeLoginDialog extends JDialog {
     private String email;
     private String password;
     private String problem;
+    private String topModule;
+    private String anotations;
 
     /**
      * Returns the login window.
@@ -39,7 +45,7 @@ public class JutgeLoginDialog extends JDialog {
      */
     public JutgeLoginDialog(JFrame parent) {
         super(parent, "Login", true); // Modal dialog with parent window
-        setSize(300, 250); // Increase the dialog size for better visibility
+        setSize(450, 350); // Increase the dialog size for better visibility
         setLocationRelativeTo(parent);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
@@ -56,12 +62,20 @@ public class JutgeLoginDialog extends JDialog {
         JTextField problemField = new JTextField();
         problemField.setPreferredSize(new Dimension(200, 25)); // Set a preferred width for the email field
 
-        JCheckBox rememberCredentialsCheckBox = new JCheckBox("Remember Credentials");
+        JLabel topModuleLabel = new JLabel("Top module name:");
+        JTextField topModuleField = new JTextField();
+        topModuleField.setPreferredSize(new Dimension(200, 25)); // Set a preferred width for the email field
+
+        JLabel anotationsLabel = new JLabel("Anotations:");
+        JTextField anotationsField = new JTextField();
+        anotationsField.setPreferredSize(new Dimension(200, 25)); // Set a preferred width for the email field
+
+        JCheckBox rememberCredentialsCheckBox = new JCheckBox("Remember Credentials (It will be sored in plain text)");
 
         JButton sendButton = new JButton("Send");
 
         // Load any existing credentials
-        loadJutgeCredentials(problemField, emailField, passwordField, rememberCredentialsCheckBox);
+        loadJutgeCredentials(topModuleField, problemField, emailField, passwordField, rememberCredentialsCheckBox);
 
         // Set up layout
         setLayout(new GridBagLayout());
@@ -72,29 +86,41 @@ public class JutgeLoginDialog extends JDialog {
         // Add components to the layout
         gbc.gridx = 0;
         gbc.gridy = 0;
+        add(topModuleLabel, gbc);
+        gbc.gridx = 1;
+        add(topModuleField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 1;
         add(problemLabel, gbc);
         gbc.gridx = 1;
         add(problemField, gbc);
 
         gbc.gridx = 0;
-        gbc.gridy = 1;
+        gbc.gridy = 2;
+        add(anotationsLabel, gbc);
+        gbc.gridx = 1;
+        add(anotationsField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 3;
         add(emailLabel, gbc);
         gbc.gridx = 1;
         add(emailField, gbc);
 
         gbc.gridx = 0;
-        gbc.gridy = 2;
+        gbc.gridy = 4;
         add(passwordLabel, gbc);
         gbc.gridx = 1;
         add(passwordField, gbc);
 
-        gbc.gridx = 1;
-        gbc.gridy = 3;
+        gbc.gridx = 0;
+        gbc.gridy = 5;
         gbc.gridwidth = 2; // Span checkbox across two columns
         add(rememberCredentialsCheckBox, gbc);
 
         gbc.gridx = 0;
-        gbc.gridy = 4;
+        gbc.gridy = 6;
         gbc.gridwidth = 2; // Span button across two columns
         add(sendButton, gbc);
 
@@ -103,12 +129,14 @@ public class JutgeLoginDialog extends JDialog {
             email = emailField.getText();
             password = new String(passwordField.getPassword());
             problem = problemField.getText();
+            topModule = topModuleField.getText();
+            anotations = anotationsField.getText();
 
             if (email.isEmpty() || password.isEmpty() || problem.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Some of the fields are empty.", "Error",
                         JOptionPane.ERROR_MESSAGE);
             } else {
-                saveJutgeCredentials(problem, email, password, rememberCredentialsCheckBox.isSelected());
+                saveJutgeCredentials(problem, topModule, email, password, rememberCredentialsCheckBox.isSelected());
                 dispose();
             }
         });
@@ -119,10 +147,10 @@ public class JutgeLoginDialog extends JDialog {
      *
      * @return user credentials dailog
      */
-    public UserCredentials showDialog() {
+    public JutgeCredentials showDialog() {
         setVisible(true); // Open dialog and block until it's closed
         if (email != null && password != null && problem != null) {
-            return new UserCredentials(email, password, problem);
+            return new JutgeCredentials(email, password, problem, topModule, anotations);
         }
         return null; // Return null if dialog was closed without valid inputs
     }
@@ -131,22 +159,28 @@ public class JutgeLoginDialog extends JDialog {
      * User Credentials Class
      *
      */
-    public static class UserCredentials {
+    public static class JutgeCredentials {
         private final String email;
         private final String password;
         private final String problem;
+        private final String topModule;
+        private final String anotations;
 
         /**
          * Returns the user credentials
          *
-         * @param email    the email of the user
-         * @param password the password of the user
-         * @param problem  the problem to be evaluated
+         * @param email      the email of the user
+         * @param password   the password of the user
+         * @param problem    the problem to be evaluated
+         * @param topModule  the top module name
+         * @param anotations anotations
          */
-        public UserCredentials(String email, String password, String problem) {
+        public JutgeCredentials(String email, String password, String problem, String topModule, String anotations) {
             this.email = email;
             this.password = password;
             this.problem = problem;
+            this.topModule = topModule;
+            this.anotations = anotations;
         }
 
         /**
@@ -176,22 +210,41 @@ public class JutgeLoginDialog extends JDialog {
             return problem;
         }
 
+        /**
+         * Get anotations
+         *
+         * @return the anotations
+         */
+        public String getAnotations() {
+            return anotations;
+        }
+
+        /**
+         * Get the top module
+         *
+         * @return the top module
+         */
+        public String getTopModule() {
+            return topModule;
+        }
 
         /**
          * Get user credentials
          *
          * @return the user credentials
          */
-        public UserCredentials getCredentials() {
-            return new UserCredentials(email, password, problem);
+        public JutgeCredentials getCredentials() {
+            return new JutgeCredentials(email, password, problem, topModule, anotations);
         }
     }
 
-    private void saveJutgeCredentials(String problem, String email, String password, boolean rememberCredentials) {
+    private void saveJutgeCredentials(String problem, String topModule, String email, String password,
+            boolean rememberCredentials) {
         Properties properties = new Properties();
 
         // Always save the problem field
         properties.setProperty("problem", problem);
+        properties.setProperty("topModule", topModule);
 
         // Conditionally save email and password
         if (rememberCredentials) {
@@ -206,17 +259,17 @@ public class JutgeLoginDialog extends JDialog {
         }
     }
 
-    private void loadJutgeCredentials(JTextField problemField, JTextField emailField, 
-        JPasswordField passwordField, JCheckBox rememberCredentialsCheckBox) {    
-            
+    private void loadJutgeCredentials(JTextField topModuleField, JTextField problemField, JTextField emailField,
+            JPasswordField passwordField, JCheckBox rememberCredentialsCheckBox) {
+
         Properties properties = new Properties();
 
         try (FileInputStream fis = new FileInputStream("credentials.properties")) {
             properties.load(fis);
 
             // Always load the problem field
-            String problem = properties.getProperty("problem", "");
-            problemField.setText(problem);
+            problemField.setText(properties.getProperty("problem", ""));
+            topModuleField.setText(properties.getProperty("topModule", ""));
 
             // Conditionally load email and password if they exist
             String email = properties.getProperty("email", "");
@@ -232,6 +285,6 @@ public class JutgeLoginDialog extends JDialog {
 
         } catch (IOException e) {
             System.err.println("No credentials file found. Skipping loading.");
+        }
     }
-}
 }

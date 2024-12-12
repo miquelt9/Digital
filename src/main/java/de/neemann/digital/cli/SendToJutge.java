@@ -2,29 +2,31 @@ package de.neemann.digital.cli;
 
 import java.awt.Cursor;
 import java.awt.Desktop;
-import java.awt.event.MouseAdapter;
-import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Scanner;
 
-import javax.swing.JDialog;
 import javax.swing.JEditorPane;
-import javax.swing.JLabel;
 import javax.swing.JOptionPane;
-import javax.swing.UIManager;
 import javax.swing.event.HyperlinkEvent;
 
-import org.w3c.dom.events.MouseEvent;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import de.neemann.digital.core.NodeException;
@@ -39,6 +41,11 @@ import de.neemann.digital.hdl.printer.CodePrinter;
 import de.neemann.digital.hdl.verilog2.VerilogGenerator;
 import de.neemann.digital.lang.Lang;
 
+/**
+ * The Send To Jutge of Digital
+ * <p>
+ * Created by Miquel Torner on 12.12.2024.
+ */
 public class SendToJutge {
 
     private final ElementLibrary library;
@@ -55,44 +62,85 @@ public class SendToJutge {
         this.library = library;
     }
 
-    public Map<String, String> login(String email, String password) {
+    public String login(String email, String password) {
+        String token;
+        String expiration;
+
         try {
-            URL url = new URL("http://localhost:8000/api/login");
-            HttpURLConnection http = (HttpURLConnection) url.openConnection();
-            http.setRequestMethod("POST");
-            http.setDoOutput(true);
-            http.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            String endpoint = "https://api.jutge.org/api";
 
-            String jsonInput = String.format("{\"email\":\"%s\",\"password\":\"%s\"}", email, password);
-            try (OutputStream os = http.getOutputStream()) {
-                os.write(jsonInput.getBytes(StandardCharsets.UTF_8));
+            HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+            connection.setDoOutput(true);
+
+            String inputJson = String.format(
+                    "{\"func\":\"auth.login\", \"input\":{\"email\":\"%s\", \"password\":\"%s\"}}",
+                    email, password);
+            String payload = "data=" + inputJson; // Wrap in the 'data=' prefix
+
+            // Write payload to output stream
+            try (OutputStream os = connection.getOutputStream()) {
+                os.write(payload.getBytes());
+                os.flush();
             }
 
-            int status = http.getResponseCode();
-            HashMap<String, String> result = new HashMap<>();
+            int responseCode = connection.getResponseCode();
 
-            if (status == 200) {
-                StringBuilder response = new StringBuilder();
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(http.getInputStream(), StandardCharsets.UTF_8))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        response.append(line);
+            // Read and parse response
+            if (responseCode == HttpURLConnection.HTTP_OK) { // 200
+                try (Scanner scanner = new Scanner(connection.getInputStream())) {
+                    StringBuilder response = new StringBuilder();
+                    while (scanner.hasNext()) {
+                        response.append(scanner.nextLine());
                     }
+                    // System.out.println("Full Response: " + response);
+
+                    // Extract JSON from multipart response
+                    String responseBody = response.toString();
+                    int jsonStart = responseBody.indexOf("{\"output\":");
+                    int jsonEnd = responseBody.lastIndexOf("}") + 1;
+                    if (jsonStart != -1 && jsonEnd != -1) {
+                        String jsonPart = responseBody.substring(jsonStart, jsonEnd);
+                        // System.out.println("Extracted JSON: " + jsonPart);
+
+                        try {
+                            // Parse the JSON using json-simple
+                            JSONParser parser = new JSONParser();
+                            JSONObject jsonObject = (JSONObject) parser.parse(jsonPart);
+                            JSONObject output = (JSONObject) jsonObject.get("output");
+
+                            token = (String) output.get("token");
+                            expiration = (String) output.get("expiration");
+
+                            // System.out.println("Token: " + token);
+                            // System.out.println("Expiration: " + expiration);
+                        } catch (Exception e) {
+                            // System.err.println("Error parsing JSON: " + e.getMessage());
+                            return null;
+                        }
+                    } else {
+                        return null;
+                        // System.err.println("JSON portion not found in response!");
+                    }
+
                 }
-                result = parseJsonToMap(response.toString());
             } else {
-                result.put("success", "false");
+                // try (Scanner scanner = new Scanner(connection.getErrorStream())) {
+                //     StringBuilder errorResponse = new StringBuilder();
+                //     while (scanner.hasNext()) {
+                //         errorResponse.append(scanner.nextLine());
+                //     }
+                //     System.err.println("Error Response: " + errorResponse);
+                // }
+                return null;
             }
-
-            result.put("status", String.valueOf(status));
-
-            return result;
-
         } catch (Exception e) {
-            e.printStackTrace();
+            // e.printStackTrace();
             return null;
         }
+        
+        return token;
     }
 
     /**
@@ -102,11 +150,12 @@ public class SendToJutge {
      * @param problem problem ID
      * 
      */
-    public void sendProblem(String token, String problem) {
+    public void sendProblem(String token, String problem_id, String topModule, String anotations) {
 
         System.out.println("Token: " + token);
-        System.out.println("Problem: " + problem);
-
+        System.out.println("Problem: " + problem_id);
+        System.out.println("TopModule: " + topModule);
+        System.out.println("Anotations: " + anotations);
         // Check model for errors
         try {
             new ModelCreator(circuitComponent.getCircuit(), library).createModel(false);
@@ -119,11 +168,11 @@ public class SendToJutge {
         // Construct the file name
         ElementAttributes settings = Settings.getInstance().getAttributes();
         File oldExportDirectory = settings.getFile("exportDirectory");
-        File outputFile = new File(problem + ".v");
+        File outputFile = new File(topModule + ".v");
         File exportDirectory = new File("/tmp/");
 
         if (exportDirectory != null) {
-            outputFile = new File(exportDirectory, problem + ".v");
+            outputFile = new File(exportDirectory, topModule + ".v");
         }
 
         settings.setFile("exportDirectory", outputFile.getParentFile());
@@ -137,79 +186,104 @@ public class SendToJutge {
             return;
         }
 
+        byte[] verilogProgram = null;
         try {
-            String content;
-            content = Files.readString(outputFile.toPath(), StandardCharsets.UTF_8);
-            // System.out.println("Generated Verilog file:\n" + content);
-
-            URL url = new URL("http://localhost:8000/api/submit");
-            HttpURLConnection http = (HttpURLConnection) url.openConnection();
-            http.setRequestMethod("POST");
-            http.setDoOutput(true);
-            http.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-
-            String jsonInput = String.format("{\"token\":\"%s\",\"problem\":\"%s\"}", token, problem);
-            try (OutputStream os = http.getOutputStream()) {
-                os.write(jsonInput.getBytes(StandardCharsets.UTF_8));
-            }
-
-            int status = http.getResponseCode();
-            // HashMap<String, String> result = new HashMap<>();
-
-            if (status == 200) {
-                System.out.println("Correct submission");
-                // StringBuilder response = new StringBuilder();
-                // try (BufferedReader reader = new BufferedReader(
-                // new InputStreamReader(http.getInputStream(), StandardCharsets.UTF_8))) {
-                // String line;
-                // while ((line = reader.readLine()) != null) {
-                // response.append(line);
-                // }
-                // }
-                // result = parseJsonToMap(response.toString());
-            } else {
-                System.out.println("Incorrect submission");
-                // result.put("success", "false");
-            }
-            // result.put("status", String.valueOf(status));
-
-            JEditorPane editorPane = new JEditorPane("text/html",
-                    "<html>See the correction <a href='https://jutge.org/problems/" + problem
-                            + "_en/submissions'>here</a>.</html>");
-            editorPane.setEditable(false);
-            editorPane.setSelectionColor(null);
-            editorPane.setOpaque(false);
-            editorPane.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-            editorPane.setHighlighter(null);
-            editorPane.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
-
-            editorPane.addHyperlinkListener(e -> {
-                if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
-                    try {
-                        Desktop.getDesktop().browse(new URI(e.getURL().toString()));
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
-                }
-            });
-
-            JOptionPane.showMessageDialog(null, editorPane, "Alert", JOptionPane.INFORMATION_MESSAGE);
-
+            verilogProgram = Files.readAllBytes(outputFile.toPath());
         } catch (IOException e1) {
-            e1.printStackTrace();
+            System.out.println("Error on reading verilog file");
+            System.out.println(outputFile.toPath());
+            return;
         }
-
-        settings.setFile("exportDirectory", oldExportDirectory);
-    }
-
-    public HashMap<String, String> parseJsonToMap(String json) {
+        System.out.println("Generated Verilog file:\n" + verilogProgram);
+        
+        String compiler_id = "Circuits";
+        
         try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            return objectMapper.readValue(json, HashMap.class);
+            // API Endpoint
+            String endpoint = "https://api.jutge.org/api";
+            System.out.println("Endpoint: " + endpoint);
+
+            String boundary = "----WebkitFormBoundary" + System.currentTimeMillis();
+
+            // Open connection
+            HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            connection.setDoOutput(true);
+
+            // Prepare the multipart body
+            try (DataOutputStream os = new DataOutputStream(connection.getOutputStream())) {
+                // Add form data for "data"
+                String inputJson = String.format(
+                    "{\"func\":\"student.submissions.submit\", \"input\":{\"problem_id\":\"%s\", \"compiler_id\":\"%s\", \"annotation\":\"%s\"}, \"meta\":{\"token\":\"%s\"}}",
+                    problem_id, compiler_id, anotations, token
+                );
+                os.writeBytes("--" + boundary + "\r\n");
+                os.writeBytes("Content-Disposition: form-data; name=\"data\"\r\n\r\n");
+                os.writeBytes(inputJson + "\r\n");
+
+                // Add file part
+                os.writeBytes("--" + boundary + "\r\n");
+                os.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"program.v\"\r\n");
+                os.writeBytes("Content-Type: application/octet-stream\r\n\r\n");
+                os.write(verilogProgram);
+                os.writeBytes("\r\n");
+
+                // End boundary
+                os.writeBytes("--" + boundary + "--\r\n");
+                os.flush();
+            }
+
+            // Get response code
+            int responseCode = connection.getResponseCode();
+            System.out.println("Response Code: " + responseCode);
+
+            // Read and parse response
+            if (responseCode == HttpURLConnection.HTTP_OK) { // 200
+                System.out.println("Request succeeded!");
+                try (Scanner scanner = new Scanner(connection.getInputStream())) {
+                    StringBuilder response = new StringBuilder();
+                    while (scanner.hasNext()) {
+                        response.append(scanner.nextLine());
+                    }
+                    System.out.println("Response: " + response);
+                }
+            } else {
+                try (Scanner scanner = new Scanner(connection.getErrorStream())) {
+                    StringBuilder errorResponse = new StringBuilder();
+                    while (scanner.hasNext()) {
+                        errorResponse.append(scanner.nextLine());
+                    }
+                    System.err.println("Error Response: " + errorResponse);
+                }
+            }
         } catch (Exception e) {
             e.printStackTrace();
-            return null;
         }
+
+        JEditorPane editorPane = new JEditorPane("text/html",
+                "<html>See the correction <a href='https://jutge.org/problems/" + problem_id
+                        + "/submissions'>here</a>.</html>");
+        editorPane.setEditable(false);
+        editorPane.setSelectionColor(null);
+        editorPane.setOpaque(false);
+        editorPane.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        editorPane.setHighlighter(null);
+        editorPane.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+
+        editorPane.addHyperlinkListener(e -> {
+            if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
+                try {
+                    Desktop.getDesktop().browse(new URI(e.getURL().toString()));
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+
+        JOptionPane.showMessageDialog(null, editorPane, "Alert", JOptionPane.INFORMATION_MESSAGE);
+
+        settings.setFile("exportDirectory", oldExportDirectory);
     }
 }
