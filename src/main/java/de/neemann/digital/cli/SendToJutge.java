@@ -158,7 +158,7 @@ public class SendToJutge {
         ElementAttributes settings = Settings.getInstance().getAttributes();
         File oldExportDirectory = settings.getFile("exportDirectory");
         File outputFile = new File(topModule + ".v");
-        File exportDirectory = new File("/tmp/");
+        File exportDirectory = new File(System.getProperty("java.io.tmpdir"));
 
         if (exportDirectory != null) {
             outputFile = new File(exportDirectory, topModule + ".v");
@@ -261,6 +261,7 @@ public class SendToJutge {
             }
         });
 
+        outputFile.delete();
         JOptionPane.showMessageDialog(null, editorPane, "Alert", JOptionPane.INFORMATION_MESSAGE);
 
         settings.setFile("exportDirectory", oldExportDirectory);
