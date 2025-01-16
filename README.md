@@ -3,6 +3,10 @@
 ![Build Status](https://travis-ci.com/miquelt9/Digital.svg?branch=master)
 [![codecov](https://codecov.io/gh/miquelt9/Digital/branch/master/graph/badge.svg)](https://codecov.io/gh/miquelt9/Digital)
 
+# Important Note #
+
+The Jutge.org API is closed for the users so it won't be possible for anyone to submit problems directly from Digital as on 16/01/2025
+
 # Digital #
 
 Digital is an easy-to-use digital logic designer and circuit simulator designed for educational purposes.
