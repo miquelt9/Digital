@@ -195,7 +195,7 @@ public class SendToJutge {
             try (DataOutputStream os = new DataOutputStream(connection.getOutputStream())) {
                 // Add form data for "data"
                 String inputJson = String.format(
-                        "{\"func\":\"student.submissions.submit\", \"input\":{\"problem_id\":\"%s\", \"compiler_id\":\"%s\", \"annotation\":\"%s\"}, \"meta\":{\"token\":\"%s\"}}",
+                        "{\"func\":\"student.submissions.submitFull\", \"input\":{\"problem_id\":\"%s\", \"compiler_id\":\"%s\", \"annotation\":\"%s\"}, \"meta\":{\"token\":\"%s\"}}",
                         problem_id, compiler_id, anotations, token);
                 os.writeBytes("--" + boundary + "\r\n");
                 os.writeBytes("Content-Disposition: form-data; name=\"data\"\r\n\r\n");
