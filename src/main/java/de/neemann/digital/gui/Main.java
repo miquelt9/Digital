@@ -668,25 +668,18 @@ public final class Main extends JFrame implements ClosingWindowListener.ConfirmS
         ToolTipAction sendToJutge = new ToolTipAction("Send to Jutge", ICON_JUTGE) {
             @Override
             public void actionPerformed(ActionEvent e) {
-                JutgeLoginDialog.JutgeCredentials credentials = new JutgeLoginDialog(Main.this).showDialog();
+                SendToJutgeDialog.JutgeCredentials credentials = new SendToJutgeDialog(Main.this).showDialog();
 
                 if (credentials != null) {
-                    String email = credentials.getEmail();
-                    String password = credentials.getPassword();
+                    String token = credentials.getToken();
                     String problem = credentials.getProblem();
                     String topModule = credentials.getTopModule();
                     String anotations = credentials.getAnotations();
 
                     SendToJutge jutge = new SendToJutge(circuitComponent, library);
-                    String res = jutge.login(email, password);
 
-                    if (res != null) {
-                        System.out.println("Now sending");
-                        jutge.sendProblem(res, problem, topModule, anotations);
-                    } else {
-                        JOptionPane.showMessageDialog(circuitComponent, "Error on Jutge login. Check you credentials please.", "Error",
-                                JOptionPane.ERROR_MESSAGE);
-                    }
+                    System.out.println("Now sending");
+                    jutge.sendProblem(token, problem, topModule, anotations);
                 }
             }
         };
