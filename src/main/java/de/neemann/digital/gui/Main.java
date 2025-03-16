@@ -678,7 +678,6 @@ public final class Main extends JFrame implements ClosingWindowListener.ConfirmS
 
                     SendToJutge jutge = new SendToJutge(circuitComponent, library);
 
-                    System.out.println("Now sending");
                     jutge.sendProblem(token, problem, topModule, anotations);
                 }
             }

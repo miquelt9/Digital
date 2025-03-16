@@ -3,8 +3,7 @@ package de.neemann.digital.gui;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import com.jutge.api.JutgeApiClient; 
-import de.neemann.digital.gui.SendToJutgeDialog;
+import com.jutge.api.JutgeApiClient;
 
 public class JutgeLoginDialog extends JDialog {
     private String email;
@@ -28,8 +27,8 @@ public class JutgeLoginDialog extends JDialog {
         JLabel passwordLabel = new JLabel("Password:");
 
         // Set preferred dimensions for both fields.
-        emailField.setPreferredSize(new Dimension(200, 25));
-        passwordField.setPreferredSize(new Dimension(200, 25));
+        emailField.setPreferredSize(new Dimension(250, 25));
+        passwordField.setPreferredSize(new Dimension(250, 25));
 
         errorLabel.setForeground(Color.RED);
 

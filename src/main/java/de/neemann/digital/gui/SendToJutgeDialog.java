@@ -31,22 +31,22 @@ public class SendToJutgeDialog extends JDialog {
      */
     public SendToJutgeDialog(JFrame parent) {
         super(parent, "Send to Jutge", true); // Modal dialog with parent window
-        setSize(450, 350); // Increase the dialog size for better visibility
+        setSize(500, 300); // Increase the dialog size for better visibility
         setLocationRelativeTo(parent);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
         // Create components for problem details.
         JLabel problemLabel = new JLabel("Problem:");
         JTextField problemField = new JTextField();
-        problemField.setPreferredSize(new Dimension(200, 25)); 
+        problemField.setPreferredSize(new Dimension(200, 25));
 
         JLabel topModuleLabel = new JLabel("Top module name:");
         JTextField topModuleField = new JTextField();
-        topModuleField.setPreferredSize(new Dimension(200, 25)); 
+        topModuleField.setPreferredSize(new Dimension(200, 25));
 
         JLabel anotationsLabel = new JLabel("Anotations:");
         JTextField anotationsField = new JTextField();
-        anotationsField.setPreferredSize(new Dimension(200, 25)); 
+        anotationsField.setPreferredSize(new Dimension(200, 25));
 
         // Remember credentials checkbox and send button.
         JCheckBox rememberCredentialsCheckBox = new JCheckBox("Remember Login");
@@ -61,9 +61,10 @@ public class SendToJutgeDialog extends JDialog {
 
         // Load any existing credentials.
         loadJutgeCredentials(topModuleField, problemField, problemField, rememberCredentialsCheckBox);
-        
+
         // Check if saved credentials are valid and not expired.
-        if (token != null && !token.isEmpty() && email != null && !email.isEmpty() && tokenExpiration != null && !tokenExpiration.isEmpty()) {
+        if (token != null && !token.isEmpty() && email != null && !email.isEmpty() && tokenExpiration != null
+                && !tokenExpiration.isEmpty()) {
             try {
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX");
                 Date expDate = sdf.parse(tokenExpiration);
@@ -189,8 +190,9 @@ public class SendToJutgeDialog extends JDialog {
                     }
                 } catch (ParseException ex) {
                     ex.printStackTrace();
-                    JOptionPane.showMessageDialog(this, "Error checking token expiration. Please try logging in again.", "Error",
-                                JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Error checking token expiration. Please try logging in again.",
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
                     sendButton.setEnabled(false);
                     return;
                 }
@@ -205,7 +207,8 @@ public class SendToJutgeDialog extends JDialog {
                         JOptionPane.ERROR_MESSAGE);
             } else {
                 // Save credentials if needed.
-                saveJutgeCredentials(problem, topModule, email, token, tokenExpiration, rememberCredentialsCheckBox.isSelected());
+                saveJutgeCredentials(problem, topModule, email, token, tokenExpiration,
+                        rememberCredentialsCheckBox.isSelected());
                 dispose();
             }
         });
@@ -236,7 +239,8 @@ public class SendToJutgeDialog extends JDialog {
         private final String topModule;
         private final String anotations;
 
-        public JutgeCredentials(String email, String token, String expiration, String problem, String topModule, String anotations) {
+        public JutgeCredentials(String email, String token, String expiration, String problem, String topModule,
+                String anotations) {
             this.email = email;
             this.token = token;
             this.expiration = expiration;
@@ -270,11 +274,14 @@ public class SendToJutgeDialog extends JDialog {
         }
     }
 
-    private void saveJutgeCredentials(String problem, String topModule, String email, String token, String expiration, boolean rememberCredentials) {
+    private void saveJutgeCredentials(String problem, String topModule, String email, String token, String expiration,
+            boolean rememberCredentials) {
         Properties properties = new Properties();
 
         properties.setProperty("problem", problem);
         properties.setProperty("topModule", topModule);
+        // Save the checkbox state as a property.
+        properties.setProperty("rememberCredentials", String.valueOf(rememberCredentials));
 
         // Save email, token, and expiration only if rememberCredentials is selected.
         if (rememberCredentials && email != null && token != null) {
@@ -284,7 +291,7 @@ public class SendToJutgeDialog extends JDialog {
                 properties.setProperty("expiration", expiration);
             }
         }
-        
+
         try (FileOutputStream fos = new FileOutputStream("credentials.properties")) {
             properties.store(fos, "Jutge Credentials");
         } catch (IOException e) {
@@ -302,6 +309,10 @@ public class SendToJutgeDialog extends JDialog {
 
             problemField.setText(properties.getProperty("problem", ""));
             topModuleField.setText(properties.getProperty("topModule", ""));
+            // Read the checkbox state from the properties and set it.
+            String remember = properties.getProperty("rememberCredentials", "false");
+            rememberCredentialsCheckBox.setSelected(Boolean.parseBoolean(remember));
+
             String savedEmail = properties.getProperty("email", "");
             String savedToken = properties.getProperty("token", "");
             String savedExpiration = properties.getProperty("expiration", "");
@@ -318,4 +329,5 @@ public class SendToJutgeDialog extends JDialog {
             System.err.println("No credentials file found. Skipping loading.");
         }
     }
+
 }
